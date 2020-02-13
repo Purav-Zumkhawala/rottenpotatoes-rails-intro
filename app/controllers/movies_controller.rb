@@ -1,9 +1,5 @@
 class MoviesController < ApplicationController
 
-  def movie_params
-    params.require(:movie).permit(:title, :rating, :description, :release_date)
-  end
-
   def show
     id = params[:id] # retrieve movie ID from URI route
     @movie = Movie.find(id) # look up movie by unique ID
@@ -11,47 +7,16 @@ class MoviesController < ApplicationController
   end
 
   def index
-    @all_ratings = Movie.uniq.pluck(:rating)#ratings arr
-    #ratings
-    @selected_ratings = []
-    @sort             = ""
-    redirect          = false
-
-
-    
-    if(params[:ratings])
-      params[:ratings].each {|key, value| @selected_ratings << key}
-      session[:ratings] = @selected_ratings
-    elsif session[:ratings]
-        @selected_ratings = session[:ratings]
-        redirect = true
-      else
-        @selected_ratings = nil
+    @all_ratings = Movie.order(:rating).select(:rating).map(&:rating).uniq
+    @checked_ratings = check
+    @checked_ratings.each do |rating|
+      params[rating] = true
     end
 
     if params[:sort]
-      @sort = params[:sort]
-      session[:sort] = @sort
-    elsif session[:sort]
-      @sort = session[:sort]
-      redirect = true
+      @movies = Movie.order(params[:sort])
     else
-      @sort = nil
-    end
-    
-    #style
-      if @sort == 'title'
-        @css_title = 'hilite'
-      elsif @sort == 'release_date'
-        @css_release_date = 'hilite'
-      end
-    #
-    
-     if redirect
-
-      redirect_to movies_path :ratings=>@selected_ratings, :sort=>@sort
-    else
-      @movies = Movie.where(:rating => @selected_ratings).order(@sort)
+      @movies = Movie.where(:rating => @checked_ratings)
     end
   end
 
@@ -60,7 +25,7 @@ class MoviesController < ApplicationController
   end
 
   def create
-    @movie = Movie.create!(movie_params)
+    @movie = Movie.create!(params[:movie])
     flash[:notice] = "#{@movie.title} was successfully created."
     redirect_to movies_path
   end
@@ -71,7 +36,7 @@ class MoviesController < ApplicationController
 
   def update
     @movie = Movie.find params[:id]
-    @movie.update_attributes!(movie_params)
+    @movie.update_attributes!(params[:movie])
     flash[:notice] = "#{@movie.title} was successfully updated."
     redirect_to movie_path(@movie)
   end
@@ -81,6 +46,16 @@ class MoviesController < ApplicationController
     @movie.destroy
     flash[:notice] = "Movie '#{@movie.title}' deleted."
     redirect_to movies_path
+  end
+
+  private
+
+  def check
+    if params[:ratings]
+      params[:ratings].keys
+    else
+      @all_ratings
+    end
   end
 
 end
